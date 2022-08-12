@@ -1,6 +1,7 @@
 import pickle
 import cv2
 import os
+import sys
 
 import nibabel
 import nibabel as nib
@@ -16,6 +17,7 @@ from nilearn import image
 from nilearn.glm.first_level import make_first_level_design_matrix, FirstLevelModel
 from nilearn.glm.first_level import compute_regressor
 from nilearn.plotting import plot_design_matrix
+sys.path.append((os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__)))))))
 from Env.func import euclidean_distance, os_driver, distance
 
 os_driver(True)
@@ -96,7 +98,7 @@ def to_video(data, run, trial, participant):
     for i in range(20 * 1465 * (run - 1) + 1465 * (trial - 1), 20 * 1465 * (run - 1) + 1465 * trial):
         screen.fill(G.Color(0, 0, 0))
         t_rect = Rect(int(tmp['target'][i][0]), int(tmp['target'][i][1]), 70, 70)
-        G.draw.ellipse(screen, G.Color(0, 0, 255), t_rect, 0)
+        G.draw.ellipse(screen, G.Color(128, 128, 128), t_rect, 0)
 
         if tmp['hit'][:-1][i][0] == 1:
             G.draw.ellipse(screen, G.Color(255, 0, 0), t_rect, 0)
@@ -132,9 +134,11 @@ def to_video(data, run, trial, participant):
 
     out = cv2.VideoWriter('./Video/{}/Run{}/Trial {:02d}.mp4'.format(participant, run, trial), fourcc=0x7634706d,
                           fps=60, frameSize=size)
+
     for i in range(1465):
         out.write(frame_array[i])
     out.release()
+    os.system('rm -rf ./abc.BMP')
 
 
 def to_image(data, run, trial, participant):
@@ -215,7 +219,7 @@ def plot_learning_curve(behav_data, mode, subj):
 
         plt.rcParams["font.family"] = 'AppleGothic'
         plt.rcParams["font.size"] = 12
-        plt.figure(figsize=(10, 4))
+        plt.figure(figsize=(10, 8))
         plt.plot(np.arange(1, 121, 1), hit_rate, color='gray')
 
         for idx in range(0, 120, 20):
@@ -244,7 +248,7 @@ def plot_learning_curve(behav_data, mode, subj):
 
         plt.rcParams["font.family"] = 'AppleGothic'
         plt.rcParams["font.size"] = 12
-        plt.figure(figsize=(10, 4))
+        plt.figure(figsize=(10, 8))
 
         label_list = ['Adap', 'Base']
 
@@ -533,18 +537,21 @@ if __name__ == '__main__':
 
     subj = input('Subj number : ')
 
+    # 1. Maek video of an experiment
     if num == 1:
         run = int(input('Run number : '))
         trial = int(input('Trial number : '))
         data = import_behav(subj, run='All')
         to_video(data, run, trial, subj)
 
+    # 2. Draw a path of the experiment
     if num == 2:
         run = int(input('Run number : '))
         trial = int(input('Trial number : '))
         data = import_behav(subj, run='All')
         to_image(data, run, trial, subj)
 
+    # 3. Draw a learning curve of the experiment
     if num == 3:
         data = import_behav(subj, run='All')
         mode = int(input('Mode select : [1] Base [2] Adaptation // '))
@@ -554,6 +561,7 @@ if __name__ == '__main__':
             mode = 'Adap'
         plot_learning_curve(data, mode, subj)
 
+    # 4. GLM Analysis
     if num == 4:
         data = import_behav(subj, run='All')
         total_behav = total_data(data)

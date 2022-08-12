@@ -15,6 +15,8 @@ from nilearn import image
 from scipy import stats
 from voxelwise_tutorials.utils import explainable_variance
 from nilearn.glm import threshold_stats_img
+
+sys.path.append((os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__)))))))
 from Anlz.Human.data_anlz import import_behav
 from tqdm import tqdm
 from sklearn.decomposition import PCA
@@ -71,22 +73,22 @@ ev = explainable_variance(ev_data)
 
 voxel_1 = np.nanargmax(ev)
 time = np.arange(ev_data.shape[1]) * 0.5
-plt.figure(figsize=(10,3))
+plt.figure(figsize=(10, 3))
 plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
-plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label = 'average')
+plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
 plt.xlabel('Time (sec)')
-plt.title('Voxel with large explainable variance (%.2f)' %ev[voxel_1])
+plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
 plt.legend()
 plt.tight_layout()
 plt.show()
 
 voxel_1 = np.nanargmin(ev)
 time = np.arange(ev_data.shape[1]) * 0.5
-plt.figure(figsize=(10,3))
+plt.figure(figsize=(10, 3))
 plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
-plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label = 'average')
+plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
 plt.xlabel('Time (sec)')
-plt.title('Voxel with large explainable variance (%.2f)' %ev[voxel_1])
+plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -214,7 +216,7 @@ backend = set_backend("torch_cuda", on_error="warn")
 X_train = X_train.astype("float32")
 X_test = X_test.astype("float32")
 
-alphas = np.logspace(1,3,100)
+alphas = np.logspace(1, 3, 100)
 
 kernel_ridge_cv = KernelRidgeCV(
     alphas=alphas, cv=cv,
@@ -246,10 +248,10 @@ Y_pred = pipeline.predict(X_test)
 
 r_score = []
 for idx in range(Y_pred.shape[1]):
-    r_score.append(scipy.stats.pearsonr(Y_pred[:,idx], Y_test[:,idx]))
+    r_score.append(scipy.stats.pearsonr(Y_pred[:, idx], Y_test[:, idx]))
 
 r_score = np.array(r_score)
-scipy.stats.pearsonr(Y_pred[:,0], Y_test[:,0])
+scipy.stats.pearsonr(Y_pred[:, 0], Y_test[:, 0])
 
 
 def z_transform(r, n):
@@ -257,15 +259,17 @@ def z_transform(r, n):
     return z
 
 
-z_score = z_transform(r_score[:,0], n=1000)
+z_score = z_transform(r_score[:, 0], n=1000)
 
 thresholded_map2, threshold2 = threshold_stats_img(
-    masking.unmask(z_score , mask_file), alpha=0.0001, height_control='fdr')
+    masking.unmask(z_score, mask_file), alpha=0.0001, height_control='fdr')
 
 if not os.path.exists('./Network_Result/{}/{}/{}'.format(subj, trained_, net_name)):
     os.makedirs('./Network_Result/{}/{}/{}'.format(subj, trained_, net_name))
 
 nib.save(masking.unmask(scores, mask_file), './Network_Result/{}/{}/{}/r2_score.nii'.format(subj, trained_, net_name))
-nib.save(masking.unmask(r_score[:,0], mask_file), './Network_Result/{}/{}/{}/r_score.nii'.format(subj, trained_, net_name))
-nib.save(masking.unmask(r_score[:,0], mask_file), './Network_Result/{}/{}/{}/z_score.nii'.format(subj, trained_, net_name))
+nib.save(masking.unmask(r_score[:, 0], mask_file),
+         './Network_Result/{}/{}/{}/r_score.nii'.format(subj, trained_, net_name))
+nib.save(masking.unmask(r_score[:, 0], mask_file),
+         './Network_Result/{}/{}/{}/z_score.nii'.format(subj, trained_, net_name))
 nib.save(thresholded_map2, './Network_Result/{}/{}/{}/FDR(0.0001).nii'.format(subj, trained_, net_name))

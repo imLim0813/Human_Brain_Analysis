@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 from glob import glob
+sys.path.append((os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__)))))))
 from Anlz.Human.data_anlz import import_behav, sampling, cal_theta
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -89,7 +90,7 @@ def plot_target_dist():
 
     target_data = np.concatenate([r.reshape(-1, 1), rad.reshape(-1, 1)], axis=1)
 
-    directory = './Analysis/Result/Target_dist'
+    directory = './Result/Target_dist'
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -188,10 +189,10 @@ def plot_correlation(corr_dict):
     for (i, j), z in np.ndenumerate(corr_list):
         ax.text(j, i, '{:0.2f}'.format(z), ha='center', va='center')
 
-    ax.set_xticklabels([''] + list(['Human', 'Target', 'RGB', '15frame', '4frame']))
-    ax.set_yticklabels([''] + list(['Human', 'Target', 'RGB', '15frame', '4frame']))
+    ax.set_xticklabels([''] + list(corr_dict.keys()))
+    ax.set_yticklabels([''] + list(corr_dict.keys()))
     plt.xticks(rotation=30)
-    plt.savefig('./Distribution_corr.jpg', dpi=300)
+    plt.savefig('./Result/Distribution_corr.jpg', dpi=300)
 
     return corr_list
 
@@ -226,21 +227,25 @@ def plot_all_dist():
     for a in range(len(name_list)):
         print(idx)
         axes.append(fig.add_subplot(rows, cols, a + 1 if a < 2 else a + 2))
-        subplot_title = ()
         axes[-1].set_title(name_list[a])
         plt.axis('off')
         plt.imshow(dist_list[a])
     fig.tight_layout()
-    plt.savefig('./All_Distribution.JPEG')
+    plt.savefig('./Result/All_Distribution.JPEG')
 
 
 if __name__ == '__main__':
     subj = input('Please enter the subject number : ')
+
+    # 1. Human Distribution
     human_r, human_theta, human_dist = plot_human_dist(subj)
+
+    # 2. Target Distribution
     target_r, target_theta, target_dist = plot_target_dist()
 
     corr_dict = {'Human': human_dist, 'Target': target_dist}
 
+    # 3. RL Distribution
     data_list = glob('../../Data/RL_model/*/')
     rl_dict = {}
 
@@ -261,16 +266,8 @@ if __name__ == '__main__':
     corr_list = np.array(corr_list)
     corr_list = corr_list.reshape(-1, len(list(corr_dict.keys())))
 
-    plt.rc('font', size=20)
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_subplot(111)
-    cax = ax.matshow(corr_list, cmap='Oranges')
-    fig.colorbar(cax)
+    # 4. Action policy correlation
+    plot_correlation(corr_dict)
 
-    for (i, j), z in np.ndenumerate(corr_list):
-        ax.text(j, i, '{:0.2f}'.format(z), ha='center', va='center')
-
-    ax.set_xticklabels([''] + list(corr_dict.keys()))
-    ax.set_yticklabels([''] + list(corr_dict.keys()))
-    plt.xticks(rotation=30)
-
+    # 5. All distribution
+    plot_all_dist()
