@@ -2,7 +2,7 @@
 
 ### Description
 #### 1. Reinforcement Learning Game Environment 
-#####   - Tracking Game using joystick
+#####     - Tracking Game using joystick
 
 
 #### 2. Reinforcement Learning Modeling
