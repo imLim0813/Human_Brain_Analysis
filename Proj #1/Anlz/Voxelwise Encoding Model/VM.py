@@ -35,8 +35,17 @@ net_name = 'Actor'
 trained_ = 'Trained'
 
 
-def ev_fmri(participant):
-    data_path = '/mnt/sdb2/imlim/proj_AGI/fMRI_data/{}/'.format(participant)
+def ev_fmri(subj):
+    """이 함수는 fMRI 데이터를 호출하기 위한 함수입니다.
+
+    Args:
+        subj : 이 매개변수는 피험자 번호를 지정하기 위한 매개변수다.
+
+    Returns:
+        fMRI data : rest time을 제외한 피험자 fMRI 데이터
+
+    """
+    data_path = '../../Data/Human/fMRI/{}/'.format(subj)
     data = []
     for idx in range(1, 7, 1):
 
@@ -47,7 +56,7 @@ def ev_fmri(participant):
             for j in range(50):
                 img.append(f_img[:, :, :, 70 * idx_2 + j])
         f_img = np.array(img)
-        mask = nib.load('/mnt/sdb2/imlim/proj_AGI/fMRI_data/{}/full_mask.nii'.format(participant))
+        mask = nib.load('../../Data/Human/fMRI/{}/full_mask.nii'.format(subj))
         f_img = f_img.transpose((1, 2, 3, 0))
 
         f_img = nib.Nifti1Image(f_img, mask.affine, mask.header)
@@ -67,209 +76,218 @@ def ev_fmri(participant):
     return data
 
 
-ev_data = ev_fmri(subj)
+# fMRI 데이터 분석
+# ev = explainable_variance(ev_data)
+#
+# voxel_1 = np.nanargmax(ev)
+# time = np.arange(ev_data.shape[1]) * 0.5
+# plt.figure(figsize=(10, 3))
+# plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
+# plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
+# plt.xlabel('Time (sec)')
+# plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
+#
+# voxel_1 = np.nanargmin(ev)
+# time = np.arange(ev_data.shape[1]) * 0.5
+# plt.figure(figsize=(10, 3))
+# plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
+# plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
+# plt.xlabel('Time (sec)')
+# plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
 
-ev = explainable_variance(ev_data)
 
-voxel_1 = np.nanargmax(ev)
-time = np.arange(ev_data.shape[1]) * 0.5
-plt.figure(figsize=(10, 3))
-plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
-plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
-plt.xlabel('Time (sec)')
-plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
-plt.legend()
-plt.tight_layout()
-plt.show()
+def vem(subj, ev_data):
+    mask_file = nib.load('../../Data/Human/fMRI/{}/full_mask.nii'.format(subj))
+    anat_file = nilearn.image.load_img('../../Data/Human/fMRI/{}/anat_final.nii.gz'.format(subj))
 
-voxel_1 = np.nanargmin(ev)
-time = np.arange(ev_data.shape[1]) * 0.5
-plt.figure(figsize=(10, 3))
-plt.plot(time, ev_data[:, :, voxel_1].T, color='C0', alpha=0.5)
-plt.plot(time, ev_data[:, :, voxel_1].mean(0), color='C1', label='average')
-plt.xlabel('Time (sec)')
-plt.title('Voxel with large explainable variance (%.2f)' % ev[voxel_1])
-plt.legend()
-plt.tight_layout()
-plt.show()
+    ev_data = ev_data.reshape(-1, ev_data.shape[2])
 
-mask_file = nib.load('/mnt/sdb2/imlim/proj_AGI/fMRI_data/{}/full_mask.nii'.format(subj))
-anat_file = nilearn.image.load_img('/mnt/sdb2/imlim/proj_AGI/fMRI_data/{}/anat_final.nii.gz'.format(subj))
+    data_list = glob(
+        '/mnt/sdb2/imlim/proj_AGI/RL_data/{}/{}/Human_RL_{}_*.pkl'.format(subj, trained_, net_name.lower()))
 
-ev_data = ev_data.reshape(-1, ev_data.shape[2])
-Y_train = ev_data[:5000]
-Y_test = ev_data[5000:]
+    dnn_data = {}
 
-data_list = glob('/mnt/sdb2/imlim/proj_AGI/RL_data/{}/{}/Human_RL_{}_*.pkl'.format(subj, trained_, net_name.lower()))
+    for idx, data in enumerate(data_list):
+        with open(data, 'rb') as f:
+            tmp = pickle.load(f)
 
-dnn_data = {}
+        if idx == 0:
+            for name in tmp.keys():
+                dnn_data[name] = [np.array(tmp[name]).squeeze()]
 
-for idx, data in enumerate(data_list):
-    with open(data, 'rb') as f:
-        tmp = pickle.load(f)
+        else:
+            for name in tmp.keys():
+                dnn_data[name].append(np.array(tmp[name]).squeeze())
 
-    if idx == 0:
-        for name in tmp.keys():
-            dnn_data[name] = [np.array(tmp[name]).squeeze()]
+    for name in dnn_data.keys():
+        dnn_data[name] = np.array(dnn_data[name])
 
-    else:
-        for name in tmp.keys():
-            dnn_data[name].append(np.array(tmp[name]).squeeze())
+    RL_data = dnn_data
+    del RL_data['pixel']
 
-for name in dnn_data.keys():
-    dnn_data[name] = np.array(dnn_data[name])
+    if net_name == 'Critic':
+        del RL_data['Q_val']
+    elif net_name == 'Actor':
+        del RL_data['action']
 
-RL_data = dnn_data
-del RL_data['pixel']
+    for name in RL_data.keys():
+        RL_data[name] = RL_data[name].reshape(-1, RL_data[name].shape[2])
 
-if net_name == 'Critic':
-    del RL_data['Q_val']
-elif net_name == 'Actor':
-    del RL_data['action']
+    for key in RL_data.keys():
+        data = np.array(RL_data[key]).squeeze()
+        tmp = []
+        for idx in range(data.shape[0]):
+            for _ in range(4):
+                tmp.append(data[idx])
+        tmp = np.array(tmp)
+        RL_data[key] = tmp
+        print('Key : {}'.format(key))
+        print('=' * 50)
+        print('Upsampling has been completed..')
+        print('=' * 50)
 
-for name in RL_data.keys():
-    RL_data[name] = RL_data[name].reshape(-1, RL_data[name].shape[2])
+    for key in dnn_data.keys():
+        print('{} shape : {}'.format(key, dnn_data[key].shape))
 
-for key in RL_data.keys():
-    data = np.array(RL_data[key]).squeeze()
+    time_data = import_behav(subj)
+    ds_data = {}
+
+    for key in RL_data.keys():
+        print('=' * 50)
+        print('Key name : {}'.format(key))
+        print('=' * 50)
+        RL_df = pd.DataFrame(RL_data[key])
+        RL_df['time'] = time_data['time']
+        time_step = []
+
+    # Each run has 20 trials. So, total number of trials is 120.
+    for i in range(0, 120):
+
+        # Each trial runs 25 seconds. TR is 0.5 seconds. So, 25 / 0.5 = 50.
+        for j in range(50):
+            time_step.append(RL_df['time'][1465 * i] + (j + 1) * 0.5)
+
     tmp = []
-    for idx in range(data.shape[0]):
-        for _ in range(4):
-            tmp.append(data[idx])
+
+    # Downsampling
+    for i in time_step:
+        print('\rTime step {:.2f} has been processed..'.format(i), end='')
+        if np.isnan(np.array((RL_df[(RL_df['time'] < i) & (RL_df['time'] >= (i - 0.5))].mean().values[:-1]))).any():
+            pass
+        else:
+            tmp.append(RL_df[(RL_df['time'] < i) & (RL_df['time'] >= (i - 0.5))].mean().values[:-1])
+
     tmp = np.array(tmp)
-    RL_data[key] = tmp
-    print('Key : {}'.format(key))
-    print('=' * 50)
-    print('Upsampling has been completed..')
-    print('=' * 50)
+    ds_data[key] = tmp
+    print('')
 
-for key in dnn_data.keys():
-    print('{} shape : {}'.format(key, dnn_data[key].shape))
+    for key in ds_data.keys():
+        print('{} shape : {}'.format(key, ds_data[key].shape))
 
-time_data = import_behav(subj)
-ds_data = {}
+    y_train, y_test = ev_data[:5000], ev_data[5000:]
+    for name in ds_data.keys():
 
-for key in RL_data.keys():
-    print('=' * 50)
-    print('Key name : {}'.format(key))
-    print('=' * 50)
-    RL_df = pd.DataFrame(RL_data[key])
-    RL_df['time'] = time_data['time']
-    time_step = []
+        train, test = ds_data[name][:5000], ds_data[name][5000:]
 
-# Each run has 20 trials. So, total number of trials is 120.
-for i in range(0, 120):
+        std = StandardScaler()
+        pca = PCA(n_components=100)
 
-    # Each trial runs 25 seconds. TR is 0.5 seconds. So, 25 / 0.5 = 50.
-    for j in range(50):
-        time_step.append(RL_df['time'][1465 * i] + (j + 1) * 0.5)
+        pca_data = pca.fit_transform(std.fit_transform(train))
+        print('Key : {}'.format(name))
+        print('=' * 50)
+        print('PCA operation has been completed..')
+        print('Explainable Variance : {}'.format(pca.explained_variance_ratio_.cumsum()[-1]))
+        print('=' * 50)
 
-tmp = []
+        if name == 'conv1':
+            X_train = pca_data
+            X_test = pca.transform(std.transform(test))
+        else:
+            X_train = np.concatenate([X_train, pca_data], axis=1)
+            X_test = np.concatenate([X_test, pca.transform(std.transform(test))], axis=1)
 
-# Downsampling
-for i in time_step:
-    print('\rTime step {:.2f} has been processed..'.format(i), end='')
-    if np.isnan(np.array((RL_df[(RL_df['time'] < i) & (RL_df['time'] >= (i - 0.5))].mean().values[:-1]))).any():
-        pass
-    else:
-        tmp.append(RL_df[(RL_df['time'] < i) & (RL_df['time'] >= (i - 0.5))].mean().values[:-1])
+    run_onsets = np.arange(0, 5000, 1000)
+    n_samples_train = X_train.shape[0]
+    cv = generate_leave_one_run_out(n_samples_train, run_onsets)
+    cv = check_cv(cv)  # copy the cross-validation splitter into a reusable list
 
-tmp = np.array(tmp)
-ds_data[key] = tmp
-print('')
+    # CCN에 따르면 prediction accuracy 높게 tuning 필요하다고 함.
 
-for key in ds_data.keys():
-    print('{} shape : {}'.format(key, ds_data[key].shape))
+    delayer = Delayer(delays=[4, 6, 8, 10, 12])
+    backend = set_backend("torch_cuda", on_error="warn")
 
-y_train, y_test = ev_data[:5000], ev_data[5000:]
-for name in ds_data.keys():
+    X_train = X_train.astype("float32")
+    X_test = X_test.astype("float32")
 
-    train, test = ds_data[name][:5000], ds_data[name][5000:]
+    alphas = np.logspace(1, 3, 100)
 
-    std = StandardScaler()
-    pca = PCA(n_components=100)
+    kernel_ridge_cv = KernelRidgeCV(
+        alphas=alphas, cv=cv,
+        solver_params=dict(n_targets_batch=5000, n_alphas_batch=5,
+                           n_targets_batch_refit=100))
 
-    pca_data = pca.fit_transform(std.fit_transform(train))
-    print('Key : {}'.format(name))
-    print('=' * 50)
-    print('PCA operation has been completed..')
-    print('Explainable Variance : {}'.format(pca.explained_variance_ratio_.cumsum()[-1]))
-    print('=' * 50)
+    scaler = StandardScaler(with_mean=True, with_std=True)
 
-    if name == 'conv1':
-        X_train = pca_data
-        X_test = pca.transform(std.transform(test))
-    else:
-        X_train = np.concatenate([X_train, pca_data], axis=1)
-        X_test = np.concatenate([X_test, pca.transform(std.transform(test))], axis=1)
+    pipeline = make_pipeline(
+        delayer,
+        kernel_ridge_cv,
+    )
 
-run_onsets = np.arange(0, 5000, 1000)
-n_samples_train = X_train.shape[0]
-cv = generate_leave_one_run_out(n_samples_train, run_onsets)
-cv = check_cv(cv)  # copy the cross-validation splitter into a reusable list
+    set_config(display='diagram')  # requires scikit-learn 0.23
 
-# CCN에 따르면 prediction accuracy 높게 tuning 필요하다고 함.
+    _ = pipeline.fit(X_train, y_train)
 
-delayer = Delayer(delays=[4, 6, 8, 10, 12])
-backend = set_backend("torch_cuda", on_error="warn")
+    scores = pipeline.score(X_test, y_test)
+    print("(n_voxels,) =", scores.shape)
 
-X_train = X_train.astype("float32")
-X_test = X_test.astype("float32")
+    scores = backend.to_numpy(scores)
+    for idx in range(scores.shape[0]):
+        if scores[idx] < 0:
+            scores[idx] = 0
+        else:
+            scores[idx] = scores[idx]
 
-alphas = np.logspace(1, 3, 100)
+    Y_pred = pipeline.predict(X_test)
 
-kernel_ridge_cv = KernelRidgeCV(
-    alphas=alphas, cv=cv,
-    solver_params=dict(n_targets_batch=5000, n_alphas_batch=5,
-                       n_targets_batch_refit=100))
+    r_score = []
+    for idx in range(Y_pred.shape[1]):
+        r_score.append(scipy.stats.pearsonr(Y_pred[:, idx], y_test[:, idx]))
 
-scaler = StandardScaler(with_mean=True, with_std=True)
+    r_score = np.array(r_score)
 
-pipeline = make_pipeline(
-    delayer,
-    kernel_ridge_cv,
-)
+    def z_transform(r, n):
+        z = np.log((1 + r) / (1 - r)) * (np.sqrt(n - 3) / 2)
+        return z
 
-set_config(display='diagram')  # requires scikit-learn 0.23
+    z_score = z_transform(r_score[:, 0], n=1000)
 
-_ = pipeline.fit(X_train, Y_train)
+    thresholded_map2, threshold2 = threshold_stats_img(
+        masking.unmask(z_score, mask_file), alpha=0.0001, height_control='fdr')
 
-scores = pipeline.score(X_test, Y_test)
-print("(n_voxels,) =", scores.shape)
+    if not os.path.exists('./VM_Result/{}/{}/{}'.format(subj, trained_, net_name)):
+        os.makedirs('./VM_Result/{}/{}/{}'.format(subj, trained_, net_name))
 
-scores = backend.to_numpy(scores)
-for idx in range(scores.shape[0]):
-    if scores[idx] < 0:
-        scores[idx] = 0
-    else:
-        scores[idx] = scores[idx]
+    # R2_score
+    nib.save(masking.unmask(scores, mask_file), './VM_Result/{}/{}/{}/r2_score.nii'.format(subj, trained_, net_name))
 
-Y_pred = pipeline.predict(X_test)
+    # pearson correlation
+    nib.save(masking.unmask(r_score[:, 0], mask_file),
+             './VM_Result/{}/{}/{}/r_score.nii'.format(subj, trained_, net_name))
 
-r_score = []
-for idx in range(Y_pred.shape[1]):
-    r_score.append(scipy.stats.pearsonr(Y_pred[:, idx], Y_test[:, idx]))
+    # z score
+    nib.save(masking.unmask(r_score[:, 0], mask_file),
+             './VM_Result/{}/{}/{}/z_score.nii'.format(subj, trained_, net_name))
 
-r_score = np.array(r_score)
-scipy.stats.pearsonr(Y_pred[:, 0], Y_test[:, 0])
+    # FDR 0.0001
+    nib.save(thresholded_map2, './VM_Result/{}/{}/{}/FDR(0.0001).nii'.format(subj, trained_, net_name))
 
 
-def z_transform(r, n):
-    z = np.log((1 + r) / (1 - r)) * (np.sqrt(n - 3) / 2)
-    return z
-
-
-z_score = z_transform(r_score[:, 0], n=1000)
-
-thresholded_map2, threshold2 = threshold_stats_img(
-    masking.unmask(z_score, mask_file), alpha=0.0001, height_control='fdr')
-
-if not os.path.exists('./Network_Result/{}/{}/{}'.format(subj, trained_, net_name)):
-    os.makedirs('./Network_Result/{}/{}/{}'.format(subj, trained_, net_name))
-
-nib.save(masking.unmask(scores, mask_file), './Network_Result/{}/{}/{}/r2_score.nii'.format(subj, trained_, net_name))
-nib.save(masking.unmask(r_score[:, 0], mask_file),
-         './Network_Result/{}/{}/{}/r_score.nii'.format(subj, trained_, net_name))
-nib.save(masking.unmask(r_score[:, 0], mask_file),
-         './Network_Result/{}/{}/{}/z_score.nii'.format(subj, trained_, net_name))
-nib.save(thresholded_map2, './Network_Result/{}/{}/{}/FDR(0.0001).nii'.format(subj, trained_, net_name))
+if __name__ == '__main__':
+    subj = input('Subj number : ')
+    vem(subj, ev_fmri(subj))
