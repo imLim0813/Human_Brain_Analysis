@@ -68,13 +68,13 @@ class ConvNet(nn.Module):
         # track all layers
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
 
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
 
 
@@ -106,13 +106,13 @@ class Actor(nn.Module):
         # track all layers
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
 
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
 
 
@@ -157,13 +157,13 @@ class Critic(nn.Module):
         # track all layers
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
 
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
 
 
