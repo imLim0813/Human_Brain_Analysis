@@ -93,7 +93,6 @@ elif mode == 'test':
     test_reward = 0
     RL_action = []
     RL_pos = []
-
     for episode in range(1):
         env.reset()
         state = []
